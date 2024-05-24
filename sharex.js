@@ -36,6 +36,7 @@ try {
 
     // write text to clipboard
     clipboardy.writeSync(text.segments.map(s => s.text).join('\n'));
+    console.log(text)
 } catch (e) {
     console.error('Error occurred:');
     console.error(e);

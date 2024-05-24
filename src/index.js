@@ -4,7 +4,12 @@ import { imageDimensionsFromData } from 'image-dimensions';
 import sharp from 'sharp';
 import { fetch } from 'undici';
 
-import LensCore, { LensResult, LensError, Segment, BoundingBox } from './core.js';
+import LensCore from './LensCore.js';
+import BoundingBox from './BoundingBox.js'
+import LensError from './LensError.js';
+import LensResult from './LensResult.js';
+import Segment from './Segment.js';
+import { MIME_TO_EXT, SUPPORTED_MIMES } from './consts.js';
 
 export { LensResult, LensError, Segment, BoundingBox };
 
@@ -23,6 +28,13 @@ export default class Lens extends LensCore {
         return this.scanByBuffer(file);
     }
 
+    async scanByURL(url) {
+        const response = await fetch(url);
+        const buffer = await response.arrayBuffer();
+
+        return this.scanByBuffer(Buffer.from(buffer));
+    }
+
     async scanByBuffer(buffer) {
         const fileType = await fileTypeFromBuffer(buffer);
 
@@ -30,14 +42,26 @@ export default class Lens extends LensCore {
 
         let uint8Array = Uint8Array.from(buffer);
 
-        const dimensions = imageDimensionsFromData(uint8Array);
+        return this.scanByData(uint8Array, fileType.mime);
+    }
+
+    async scanByData(uint8, mime) {
+        if (!SUPPORTED_MIMES.includes(mime)) {
+            throw new Error('File type not supported');
+        }
+        
+        const dimensions = imageDimensionsFromData(uint8);
         if (!dimensions) {
             throw new Error('Could not determine image dimensions');
         }
 
+        let { width, height } = dimensions;
+
         // Google Lens does not accept images larger than 1000x1000
-        if (dimensions.width > 1000 || dimensions.height > 1000) {
-            uint8Array = Uint8Array.from(await sharp(buffer)
+        if (width > 1000 || height > 1000) {
+            width = 1000
+            height = 1000
+            uint8 = Uint8Array.from(await sharp(buffer)
                 .resize(1000, 1000, { fit: 'inside' })
                 .withMetadata()
                 .jpeg({ quality: 90, progressive: true })
@@ -45,13 +69,16 @@ export default class Lens extends LensCore {
             );
         }
 
-        return this.scanByData(uint8Array, fileType.mime, [dimensions.width, dimensions.height]);
-    }
+        let fileName = `image.${MIME_TO_EXT[mime]}`;
 
-    async scanByURL(url) {
-        const response = await fetch(url);
-        const buffer = await response.arrayBuffer();
+        const file = new File([uint8], fileName, { type: mime });
+        const formdata = new FormData();
 
-        return this.scanByBuffer(Buffer.from(buffer));
+        formdata.append('encoded_image', file);
+        formdata.append('original_width', '' + width);
+        formdata.append('original_height', '' + height);
+        formdata.append('processed_image_dimensions', `${width},${height}`);
+
+        return this.fetch(formdata, { width, height });
     }
 }

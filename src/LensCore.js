@@ -1,63 +1,10 @@
-import { imageDimensionsFromData } from 'image-dimensions';
 import setCookie from 'set-cookie-parser';
-import { LENS_ENDPOINT, MIME_TO_EXT, SUPPORTED_MIMES } from './consts.js';
+import { LENS_ENDPOINT } from './consts.js';
 import { parseCookies, sleep } from './utils.js';
 
-export class BoundingBox {
-    #imageDimensions;
-    constructor(box, imageDimensions) {
-        if(!box) throw new Error('Bounding box not set');
-        if(!imageDimensions || imageDimensions.length !== 2) throw new Error('Image dimensions not set');
-        
-        this.#imageDimensions = imageDimensions;
-
-        this.centerPerX = box[0];
-        this.centerPerY = box[1];
-        this.perWidth = box[2];
-        this.perHeight = box[3];
-        this.pixelCoords = this.#toPixelCoords();
-    }
-    #toPixelCoords() {
-        const [imgWidth, imgHeight] = this.#imageDimensions;
-
-        const width = this.perWidth * imgWidth;
-        const height = this.perHeight * imgHeight;
-
-        const x = (this.centerPerX * imgWidth) - (width / 2);
-        const y = (this.centerPerY * imgHeight) - (height / 2);
-
-        return {
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(width),
-            height: Math.round(height)
-        };
-    }
-}
-
-export class LensError extends Error {
-    constructor(message, code, headers, body) {
-        super(message);
-        this.name = 'LensError';
-        this.code = code;
-        this.headers = headers;
-        this.body = body;
-    }
-}
-
-export class Segment {
-    constructor(text, boundingBox, imageDimensions) {
-        this.text = text;
-        this.boundingBox = new BoundingBox(boundingBox, imageDimensions);
-    }
-}
-
-export class LensResult {
-    constructor(language, segments) {
-        this.language = language;
-        this.segments = segments;
-    }
-}
+import LensError from './LensError.js';
+import LensResult from './LensResult.js';
+import Segment from './Segment.js';
 
 export default class LensCore {
     #config = {};
@@ -193,36 +140,6 @@ export default class LensCore {
         }
     }
 
-    async scanByData(uint8, mime, originalDimensions) {
-        if (!SUPPORTED_MIMES.includes(mime)) {
-            throw new Error('File type not supported');
-        }
-        if(!originalDimensions) throw new Error('Original dimensions not set');
-
-        let fileName = `image.${MIME_TO_EXT[mime]}`;
-
-        const dimensions = imageDimensionsFromData(uint8);
-        if (!dimensions) {
-            throw new Error('Could not determine image dimensions');
-        }
-
-        const { width, height } = dimensions;
-        // Google Lens does not accept images larger than 1000x1000
-        if (width > 1000 || height > 1000) {
-            throw new Error('Image dimensions are larger than 1000x1000');
-        }
-
-        const file = new File([uint8], fileName, { type: mime });
-        const formdata = new FormData();
-
-        formdata.append('encoded_image', file);
-        formdata.append('original_width', '' + width);
-        formdata.append('original_height', '' + height);
-        formdata.append('processed_image_dimensions', `${width},${height}`);
-
-        return this.fetch(formdata, originalDimensions);
-    }
-
     #generateHeaders() {
         return {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -248,16 +165,6 @@ export default class LensCore {
             'Upgrade-Insecure-Requests': '1',
             'User-Agent': this.#config.userAgent,
             'X-Client-Data': 'CIW2yQEIorbJAQipncoBCIH+ygEIlaHLAQj1mM0BCIWgzQEI3ezNAQji+s0BCOmFzgEIponOAQj1ic4BCIeLzgEY1d3NARjS/s0BGNiGzgE='
-            /*
-                X-Client-Data: CIW2yQEIorbJAQipncoBCIH+ygEIlaHLAQj1mM0BCIWgzQEI3ezNAQji+s0BCOmFzgEIponOAQj1ic4BCIeLzgEY1d3NARjS/s0BGNiGzgE=
-                Decoded:
-                message ClientVariations {
-                    // Active client experiment variation IDs.
-                    repeated int32 variation_id = [3300101, 3300130, 3313321, 3325697, 3330197, 3361909, 3362821, 3372637, 3374434, 3375849, 3376294, 3376373, 3376519];
-                    // Active client experiment variation IDs that trigger server-side behavior.
-                    repeated int32 trigger_variation_id = [3370709, 3374930, 3375960];
-                }
-            */
         };
     }
 
