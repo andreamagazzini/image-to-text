@@ -9,14 +9,11 @@ import Segment from './Segment.js';
 export default class LensCore {
     #config = {};
     cookies = {};
-    _fetch = globalThis.fetch && globalThis.fetch.bind(globalThis);
 
-    constructor(config = {}, fetch) {
+    constructor(config = {}) {
         if (typeof config !== 'object') {
             throw new TypeError('Lens constructor expects an object');
         }
-
-        if (fetch) this._fetch = fetch;
 
         const chromeVersion = config?.chromeVersion ?? '124.0.6367.60';
         const majorChromeVersion = config?.chromeVersion?.split('.')[0] ?? chromeVersion.split('.')[0];
@@ -57,7 +54,7 @@ export default class LensCore {
         this.#parseCookies();
     }
 
-    async fetch(formdata, originalDimensions, secondTry = false) {
+    async analyzeImage(formdata, originalDimensions, secondTry = false) {
         const params = new URLSearchParams();
 
         params.append('s', '' + 4); // SurfaceProtoValue - Surface.CHROMIUM
@@ -76,7 +73,7 @@ export default class LensCore {
 
         this.#generateCookieHeader(headers);
 
-        const response = await this._fetch(url, {
+        const response = await fetch(url, {
             method: 'POST',
             headers,
             body: formdata,
@@ -124,7 +121,7 @@ export default class LensCore {
                 // consent was saved, save new cookies and retry the request
                 this.#setCookies(saveConsentRequest.headers.get('set-cookie'));
                 await sleep(500);
-                return this.fetch(formdata, originalDimensions, true);
+                return this.analyzeImage(formdata, originalDimensions, true);
             }
         }
 

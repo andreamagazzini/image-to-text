@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileTypeFromBuffer } from 'file-type';
 import { imageDimensionsFromData } from 'image-dimensions';
-import { fetch } from 'undici';
 
 import LensCore from './LensCore.js';
 import BoundingBox from './BoundingBox.js'
@@ -18,7 +17,7 @@ export default class Lens extends LensCore {
             console.warn('Lens constructor expects an object, got', typeof config);
             config = {};
         }
-        super(config, fetch);
+        super(config);
     }
 
     async scanByFile(path) {
@@ -71,6 +70,6 @@ export default class Lens extends LensCore {
         formdata.append('original_height', '' + height);
         formdata.append('processed_image_dimensions', `${width},${height}`);
 
-        return this.fetch(formdata, { width, height });
+        return this.analyzeImage(formdata, { width, height });
     }
 }
