@@ -1,14 +1,17 @@
 import clipboardy from 'clipboardy';
-import Lens from './src/index.js';
-import { sleep } from './src/utils.js';
+import { fileTypeFromBuffer } from 'file-type';
+import { readFile } from 'node:fs/promises';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import Lens from './src/index.js';
+import { sleep } from './src/utils.js';
+
 try {
     // get file path from command line
     const args = process.argv.slice(2);
-    const file = args[0];
+    const filePath = args[0];
 
     // get path to cookies file (should be in the same directory as this script)
     const moduleUrl = fileURLToPath(import.meta.url);
@@ -29,7 +32,14 @@ try {
     });
 
     // scan file
-    const text = await lens.scanByFile(file);
+    const file = await readFile(filePath);
+    const fileType = await fileTypeFromBuffer(file);
+
+    if (!fileType) throw new Error('File type not supported');
+
+    let uint8Array = Uint8Array.from(file);
+
+    const text = await lens.scanByData(uint8Array, fileType.mime);
 
     // write cookies to file
     fs.writeFileSync(pathToCookies, JSON.stringify(lens.cookies, null, 4));
