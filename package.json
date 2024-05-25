@@ -1,6 +1,6 @@
 {
   "name": "image-to-text-google-lens",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Package to use Google Lens OCR for free, via API used in Chrome.",
   "main": "src/index.js",
   "scripts": {
