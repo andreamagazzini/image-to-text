@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileTypeFromBuffer } from 'file-type';
 import { imageDimensionsFromData } from 'image-dimensions';
-import sharp from 'sharp';
 import { fetch } from 'undici';
 
 import LensCore from './LensCore.js';
@@ -59,14 +58,7 @@ export default class Lens extends LensCore {
 
         // Google Lens does not accept images larger than 1000x1000
         if (width > 1000 || height > 1000) {
-            width = 1000
-            height = 1000
-            uint8 = Uint8Array.from(await sharp(buffer)
-                .resize(1000, 1000, { fit: 'inside' })
-                .withMetadata()
-                .jpeg({ quality: 90, progressive: true })
-                .toBuffer()
-            );
+            throw new Error('Wrong image dimensions. Max allowed 1000x1000')
         }
 
         let fileName = `image.${MIME_TO_EXT[mime]}`;
